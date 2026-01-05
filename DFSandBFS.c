@@ -33,8 +33,10 @@ void dfs_traversal_recursive(graph *g, int currentNode, int *visitedArr);
 queue create_queue(int capacity);
 void free_queue(queue *q);
 int queue_is_empty(queue *q);
-void queue_push(queue *q, int value);
-int queue_pop(queue *q);
+int queue_push(queue *q, int value);
+int queue_pop(queue *q, int *outValue);
+
+int graph_has_edge(graph *g, int from, int to);
 
 void menu();
 
@@ -44,7 +46,11 @@ int main()
 {
     int nodeCount;
     printf("Enter node count: ");
-    scanf("%d", &nodeCount);
+    if (scanf("%d", &nodeCount) != 1 || nodeCount <= 0)
+    {
+        printf("Invalid node count!\n");
+        return 0;
+    }
 
     graph g = create_graph(nodeCount);
 
@@ -54,7 +60,11 @@ int main()
 
         int choice;
         printf("Select an option: ");
-        scanf("%d", &choice);
+        if (scanf("%d", &choice) != 1)
+        {
+            printf("Invalid input!\n");
+            break;
+        }
 
         switch (choice)
         {
@@ -62,19 +72,18 @@ int main()
             {
                 int from, to;
                 printf("Enter from node: ");
-                scanf("%d", &from);
+                if (scanf("%d", &from) != 1) { printf("Invalid input!\n"); break; }
                 printf("Enter to node: ");
-                scanf("%d", &to);
+                if (scanf("%d", &to) != 1) { printf("Invalid input!\n"); break; }
 
                 graph_add_edge_undirected(&g, from, to);
-                printf("Edge added successfully.\n");
                 break;
             }
             case 2:
             {
                 int startNode;
                 printf("Enter start node for BFS: ");
-                scanf("%d", &startNode);
+                if (scanf("%d", &startNode) != 1) { printf("Invalid input!\n"); break; }
                 bfs_traversal(&g, startNode);
                 break;
             }
@@ -82,7 +91,7 @@ int main()
             {
                 int startNode;
                 printf("Enter start node for DFS: ");
-                scanf("%d", &startNode);
+                if (scanf("%d", &startNode) != 1) { printf("Invalid input!\n"); break; }
                 dfs_traversal(&g, startNode);
                 break;
             }
@@ -99,6 +108,9 @@ int main()
                 printf("Invalid option!\n");
         }
     }
+
+    free_graph(&g);
+    return 0;
 }
 
 //////////////////////////////////////////////////////////////////
@@ -131,6 +143,9 @@ graph create_graph(int nodeCount)
 
 void free_graph(graph *g)
 {
+    if (g == NULL || g->adj == NULL)
+        return;
+
     for (int i = 0; i < g->nodeCount; i++)
     {
         edge *iter = g->adj[i];
@@ -147,11 +162,33 @@ void free_graph(graph *g)
     g->nodeCount = 0;
 }
 
+int graph_has_edge(graph *g, int from, int to)
+{
+    edge *iter = g->adj[from];
+    while (iter != NULL)
+    {
+        if (iter->to == to)
+            return 1;
+        iter = iter->next;
+    }
+    return 0;
+}
+
 void graph_add_edge_undirected(graph *g, int from, int to)
 {
     if (from < 0 || from >= g->nodeCount || to < 0 || to >= g->nodeCount)
     {
         printf("Invalid node index!\n");
+        return;
+    }
+
+    // İstersen self-loop istemiyorsan aç:
+    // if (from == to) { printf("Self-loop is not allowed!\n"); return; }
+
+    // duplicate edge engelleme (isteğe bağlı ama temiz)
+    if (graph_has_edge(g, from, to))
+    {
+        printf("Edge already exists!\n");
         return;
     }
 
@@ -174,6 +211,8 @@ void graph_add_edge_undirected(graph *g, int from, int to)
     new_edge_2->to = from;
     new_edge_2->next = g->adj[to];
     g->adj[to] = new_edge_2;
+
+    printf("Edge added successfully.\n");
 }
 
 void graph_print(graph *g)
@@ -221,17 +260,26 @@ int queue_is_empty(queue *q)
     return q->front == q->back;
 }
 
-void queue_push(queue *q, int value)
+// success => 1, fail => 0
+int queue_push(queue *q, int value)
 {
+    if (q->back >= q->capacity)
+        return 0;
+
     q->arr[q->back] = value;
     q->back++;
+    return 1;
 }
 
-int queue_pop(queue *q)
+// success => 1, fail => 0
+int queue_pop(queue *q, int *outValue)
 {
-    int value = q->arr[q->front];
+    if (queue_is_empty(q))
+        return 0;
+
+    *outValue = q->arr[q->front];
     q->front++;
-    return value;
+    return 1;
 }
 
 void bfs_traversal(graph *g, int startNode)
@@ -252,12 +300,19 @@ void bfs_traversal(graph *g, int startNode)
     queue q = create_queue(g->nodeCount);
 
     visitedArr[startNode] = 1;
-    queue_push(&q, startNode);
+    if (!queue_push(&q, startNode))
+    {
+        printf("Queue overflow!\n");
+        free_queue(&q);
+        free(visitedArr);
+        return;
+    }
 
     printf("\nBFS: ");
     while (!queue_is_empty(&q))
     {
-        int currentNode = queue_pop(&q);
+        int currentNode;
+        queue_pop(&q, &currentNode);
         printf("%d ", currentNode);
 
         edge *iter = g->adj[currentNode];
@@ -266,7 +321,14 @@ void bfs_traversal(graph *g, int startNode)
             if (visitedArr[iter->to] == 0)
             {
                 visitedArr[iter->to] = 1;
-                queue_push(&q, iter->to);
+
+                if (!queue_push(&q, iter->to))
+                {
+                    printf("\nQueue overflow!\n");
+                    free_queue(&q);
+                    free(visitedArr);
+                    return;
+                }
             }
             iter = iter->next;
         }

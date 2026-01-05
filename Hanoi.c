@@ -31,7 +31,7 @@ int main()
                 printf("Invalid disk count!\n");
                 continue;
             }
-
+            // overflow'u önlemek için 62'den büyük disk sayısına izin vermiyoruz
             if (diskCount > 62)
             {
                 printf("Too large! Please enter disk count <= 62 (to avoid overflow).\n");
@@ -41,7 +41,7 @@ int main()
             unsigned long long moveCount = hanoi_move_count(diskCount);
             printf("Total move count = %llu\n", moveCount);
 
-            // yazdırma limiti
+            // yazdırma limiti satır sayısı fahiş sayılara çıkmaması için
             if (diskCount > 20)
             {
                 printf("Disk count is large, moves will not be printed (limit is 20).\n");
